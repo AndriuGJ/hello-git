@@ -1,11 +1,2276 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
+    <title>ERP NODE - Sistema de Gestión Empresarial</title>
     
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Fontsource: JetBrains Mono -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        terminal: {
+                            bg: '#0d1117',
+                            surface: '#161b22',
+                            border: '#30363d',
+                            text: '#c9d1d9',
+                            textMuted: '#8b949e',
+                            accent: '#58a6ff',
+                            success: '#3fb950',
+                            warning: '#d29922',
+                            error: '#f85149',
+                            purple: '#a371f7',
+                            orange: '#db6d28',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        * {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #161b22; }
+        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+        
+        .sidebar-link { transition: all 0.2s ease-in-out; }
+        .sidebar-link:hover { background-color: rgba(88, 166, 255, 0.1); padding-left: 1.5rem; }
+        .sidebar-link.active { background-color: rgba(88, 166, 255, 0.15); border-left: 3px solid #58a6ff; }
+        
+        .cmd-input {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+        }
+        .cmd-input:focus {
+            border-color: #58a6ff;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+        }
+        
+        .cmd-btn {
+            transition: all 0.2s;
+        }
+        .cmd-btn:hover {
+            transform: translateY(-1px);
+        }
+        
+        .cmd-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+        }
+        
+        .cursor-blink {
+            animation: blink 1s step-end infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        .chart-container {
+            position: relative;
+            height: 280px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body class="bg-terminal-bg text-terminal-text antialiased" 
+      x-data="erpSystem()" 
+      x-init="initCharts()">
+
+    <div class="flex h-screen overflow-hidden">
+
+        <!-- Sidebar -->
+        <aside 
+            class="fixed inset-y-0 left-0 z-50 w-72 bg-terminal-surface text-terminal-text transition-transform duration-300 transform lg:static lg:translate-x-0 flex flex-col border-r border-terminal-border"
+            :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+        >
+            <!-- Logo -->
+            <div class="flex items-center justify-center h-16 border-b border-terminal-border bg-terminal-bg">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded bg-terminal-success flex items-center justify-center text-terminal-bg font-bold text-lg">
+                        >_
+                    </div>
+                    <span class="text-xl font-bold tracking-tight text-terminal-accent">ERP<span class="text-terminal-text">NODE</span></span>
+                </div>
+            </div>
+
+            <!-- Menu -->
+            <nav class="flex-1 overflow-y-auto py-3">
+                <ul class="space-y-0.5">
+                    
+                    <!-- Dashboard -->
+                    <li>
+                        <a href="#" @click.prevent="navigate('dashboard')" 
+                           :class="currentModule === 'dashboard' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2.5 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-chart-bar w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Dashboard</span>
+                        </a>
+                    </li>
+
+                    <!-- Núcleo Central -->
+                    <li class="px-5 pt-4 pb-1 text-xs font-semibold text-terminal-textMuted uppercase tracking-wider">
+                        [ Núcleo Central ]
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('core', 'entities')" 
+                           :class="currentModule === 'core' && currentSubmodule === 'entities' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-building w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Entidades Maestras</span>
+                        </a>
+                    </li>
+
+                    <!-- Finanzas -->
+                    <li class="px-5 pt-4 pb-1 text-xs font-semibold text-terminal-textMuted uppercase tracking-wider">
+                        [ Finanzas y Contabilidad ]
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('finance', 'periods')" 
+                           :class="currentModule === 'finance' && currentSubmodule === 'periods' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-calendar-alt w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Periodos</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('finance', 'accounts')" 
+                           :class="currentModule === 'finance' && currentSubmodule === 'accounts' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-book w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Cuentas Contables</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('finance', 'entries')" 
+                           :class="currentModule === 'finance' && currentSubmodule === 'entries' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-file-invoice-dollar w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Asientos Contables</span>
+                        </a>
+                    </li>
+
+                    <!-- RRHH -->
+                    <li class="px-5 pt-4 pb-1 text-xs font-semibold text-terminal-textMuted uppercase tracking-wider">
+                        [ Recursos Humanos ]
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('hr', 'employees')" 
+                           :class="currentModule === 'hr' && currentSubmodule === 'employees' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-users w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Empleados</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('hr', 'positions')" 
+                           :class="currentModule === 'hr' && currentSubmodule === 'positions' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-briefcase w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Puestos</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('hr', 'contracts')" 
+                           :class="currentModule === 'hr' && currentSubmodule === 'contracts' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-file-contract w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Contratos</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('hr', 'payroll')" 
+                           :class="currentModule === 'hr' && currentSubmodule === 'payroll' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-money-bill-wave w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Nóminas</span>
+                        </a>
+                    </li>
+
+                    <!-- CRM -->
+                    <li class="px-5 pt-4 pb-1 text-xs font-semibold text-terminal-textMuted uppercase tracking-wider">
+                        [ CRM y Proyectos ]
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('crm', 'clients')" 
+                           :class="currentModule === 'crm' && currentSubmodule === 'clients' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-user-tie w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Clientes</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('crm', 'projects')" 
+                           :class="currentModule === 'crm' && currentSubmodule === 'projects' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-project-diagram w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Proyectos</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('crm', 'assignments')" 
+                           :class="currentModule === 'crm' && currentSubmodule === 'assignments' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-tasks w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Asignaciones</span>
+                        </a>
+                    </li>
+
+                    <!-- Inventario -->
+                    <li class="px-5 pt-4 pb-1 text-xs font-semibold text-terminal-textMuted uppercase tracking-wider">
+                        [ Inventario y Almacenes ]
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('inventory', 'warehouses')" 
+                           :class="currentModule === 'inventory' && currentSubmodule === 'warehouses' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-warehouse w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Almacenes</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('inventory', 'suppliers')" 
+                           :class="currentModule === 'inventory' && currentSubmodule === 'suppliers' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-truck w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Proveedores</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('inventory', 'categories')" 
+                           :class="currentModule === 'inventory' && currentSubmodule === 'categories' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-tags w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Categorías</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('inventory', 'products')" 
+                           :class="currentModule === 'inventory' && currentSubmodule === 'products' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-box w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Productos</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('inventory', 'stock')" 
+                           :class="currentModule === 'inventory' && currentSubmodule === 'stock' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-clipboard-list w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Inventario</span>
+                        </a>
+                    </li>
+
+                    <!-- Ventas -->
+                    <li class="px-5 pt-4 pb-1 text-xs font-semibold text-terminal-textMuted uppercase tracking-wider">
+                        [ Ventas ]
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('sales', 'orders')" 
+                           :class="currentModule === 'sales' && currentSubmodule === 'orders' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-shopping-cart w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Órdenes de Venta</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('sales', 'invoices')" 
+                           :class="currentModule === 'sales' && currentSubmodule === 'invoices' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-file-invoice w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Facturas</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('sales', 'payments')" 
+                           :class="currentModule === 'sales' && currentSubmodule === 'payments' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-credit-card w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Pagos</span>
+                        </a>
+                    </li>
+
+                    <!-- Compras -->
+                    <li class="px-5 pt-4 pb-1 text-xs font-semibold text-terminal-textMuted uppercase tracking-wider">
+                        [ Compras ]
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('purchasing', 'purchaseOrders')" 
+                           :class="currentModule === 'purchasing' && currentSubmodule === 'purchaseOrders' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-shopping-basket w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Órdenes de Compra</span>
+                        </a>
+                    </li>
+
+                    <!-- Producción -->
+                    <li class="px-5 pt-4 pb-1 text-xs font-semibold text-terminal-textMuted uppercase tracking-wider">
+                        [ Producción ]
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('production', 'workOrders')" 
+                           :class="currentModule === 'production' && currentSubmodule === 'workOrders' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-cogs w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Órdenes de Producción</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="navigate('production', 'bom')" 
+                           :class="currentModule === 'production' && currentSubmodule === 'bom' ? 'active' : ''" 
+                           class="sidebar-link flex items-center px-5 py-2 text-terminal-textMuted hover:text-terminal-accent">
+                            <i class="fas fa-industry w-5 text-center"></i>
+                            <span class="ml-3 text-sm">Recetas / BOM</span>
+                        </a>
+                    </li>
+
+                </ul>
+            </nav>
+
+            <!-- User Profile -->
+            <div class="p-3 border-t border-terminal-border bg-terminal-bg">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded bg-terminal-purple flex items-center justify-center text-terminal-bg font-bold text-sm">
+                        AU
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-terminal-text">admin_user</p>
+                        <p class="text-xs text-terminal-textMuted">Gerente General</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-hidden relative">
+            
+            <!-- Header -->
+            <header class="flex justify-between items-center py-3 px-5 bg-terminal-surface border-b border-terminal-border z-10">
+                <div class="flex items-center">
+                    <button @click="sidebarOpen = !sidebarOpen" class="text-terminal-textMuted focus:outline-none lg:hidden mr-4">
+                        <i class="fas fa-bars text-lg"></i>
+                    </button>
+                    
+                    <div class="relative hidden md:block">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                            <i class="fas fa-search text-terminal-textMuted"></i>
+                        </span>
+                        <input x-model="searchQuery" type="text" 
+                               class="w-72 py-2 pl-10 pr-4 cmd-input rounded text-sm" 
+                               placeholder="Buscar comandos...">
+                        <span class="absolute inset-y-0 right-0 flex items-center pr-3">
+                            <span class="text-terminal-textMuted cursor-blink">|</span>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-5">
+                    <button class="relative text-terminal-textMuted hover:text-terminal-accent transition">
+                        <i class="fas fa-bell text-base"></i>
+                        <span class="absolute -top-1 -right-1 h-2 w-2 bg-terminal-error rounded-full"></span>
+                    </button>
+                    <button class="text-terminal-textMuted hover:text-terminal-accent transition">
+                        <i class="fas fa-cog text-base"></i>
+                    </button>
+                    <button class="text-terminal-textMuted hover:text-terminal-error transition">
+                        <i class="fas fa-sign-out-alt text-base"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Main Content Area -->
+            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-terminal-bg p-5">
+                
+                <!-- Dashboard View -->
+                <div x-show="currentModule === 'dashboard'" x-transition.opacity>
+                    <div class="mb-6">
+                        <h1 class="text-2xl font-bold text-terminal-text">> Dashboard_General</h1>
+                        <p class="text-terminal-textMuted text-sm mt-1">Resumen de operaciones y métricas clave del sistema</p>
+                    </div>
+
+                    <!-- KPI Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div class="cmd-card rounded p-4 hover:border-terminal-accent transition cursor-pointer"
+                             @click="navigate('sales', 'orders')">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-xs font-medium text-terminal-textMuted mb-1">VENTAS_TOTALES(MES)</p>
+                                    <h3 class="text-xl font-bold text-terminal-success">$124,500.00</h3>
+                                </div>
+                                <div class="p-2 bg-terminal-success bg-opacity-10 rounded text-terminal-success">
+                                    <i class="fas fa-arrow-trend-up text-base"></i>
+                                </div>
+                            </div>
+                            <p class="text-xs text-terminal-success mt-3 font-medium">+12.5% vs mes anterior</p>
+                        </div>
+
+                        <div class="cmd-card rounded p-4 hover:border-terminal-warning transition cursor-pointer"
+                             @click="navigate('sales', 'orders')">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-xs font-medium text-terminal-textMuted mb-1">ORDENES_PENDIENTES</p>
+                                    <h3 class="text-xl font-bold text-terminal-warning" x-text="salesOrders.length"></h3>
+                                </div>
+                                <div class="p-2 bg-terminal-warning bg-opacity-10 rounded text-terminal-warning">
+                                    <i class="fas fa-clock text-base"></i>
+                                </div>
+                            </div>
+                            <p class="text-xs text-terminal-warning mt-3 font-medium">5 urgentes</p>
+                        </div>
+
+                        <div class="cmd-card rounded p-4 hover:border-terminal-error transition cursor-pointer"
+                             @click="navigate('inventory', 'stock')">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-xs font-medium text-terminal-textMuted mb-1">STOCK_CRITICO</p>
+                                    <h3 class="text-xl font-bold text-terminal-error" x-text="products.filter(p => p.stock < 10).length"></h3>
+                                </div>
+                                <div class="p-2 bg-terminal-error bg-opacity-10 rounded text-terminal-error">
+                                    <i class="fas fa-box-open text-base"></i>
+                                </div>
+                            </div>
+                            <p class="text-xs text-terminal-error mt-3 font-medium">Requiere reposición</p>
+                        </div>
+
+                        <div class="cmd-card rounded p-4 hover:border-terminal-accent transition cursor-pointer"
+                             @click="navigate('hr', 'payroll')">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-xs font-medium text-terminal-textMuted mb-1">NOMINA_A_PAGAR</p>
+                                    <h3 class="text-xl font-bold text-terminal-accent">$45,200.00</h3>
+                                </div>
+                                <div class="p-2 bg-terminal-accent bg-opacity-10 rounded text-terminal-accent">
+                                    <i class="fas fa-users text-base"></i>
+                                </div>
+                            </div>
+                            <p class="text-xs text-terminal-textMuted mt-3 font-medium">Próximo corte: 30/11</p>
+                        </div>
+                    </div>
+
+                    <!-- Charts Section -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                        <!-- Bar Chart -->
+                        <div class="lg:col-span-2 cmd-card rounded p-4">
+                            <h3 class="text-sm font-bold text-terminal-text mb-3">> Rendimiento_Ventas_Mensual</h3>
+                            <div class="chart-container">
+                                <canvas id="salesBarChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Activity Feed -->
+                        <div class="cmd-card rounded p-4">
+                            <h3 class="text-sm font-bold text-terminal-text mb-3">> Actividad_Reciente</h3>
+                            <div class="space-y-3">
+                                <template x-for="activity in recentActivities" :key="activity.id">
+                                    <div class="flex items-start gap-2 pb-2 border-b border-terminal-border last:border-0">
+                                        <div class="w-1.5 h-1.5 mt-1.5 rounded-full flex-shrink-0" :class="activity.color"></div>
+                                        <div>
+                                            <p class="text-xs text-terminal-text font-medium" x-text="activity.title"></p>
+                                            <p class="text-xs text-terminal-textMuted" x-text="activity.description"></p>
+                                            <p class="text-xs text-terminal-textMuted mt-0.5" x-text="activity.time"></p>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Orders Table -->
+                    <div class="cmd-card rounded overflow-hidden">
+                        <div class="px-4 py-3 border-b border-terminal-border flex justify-between items-center">
+                            <h3 class="text-sm font-bold text-terminal-text">> Ultimas_Ordenes_Venta</h3>
+                            <button @click="navigate('sales', 'orders')" class="text-xs text-terminal-accent hover:text-terminal-text font-medium">Ver_Todo --></button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="bg-terminal-bg text-terminal-textMuted text-xs uppercase">
+                                        <th class="px-4 py-2.5 font-semibold">ID</th>
+                                        <th class="px-4 py-2.5 font-semibold">Cliente</th>
+                                        <th class="px-4 py-2.5 font-semibold">Fecha</th>
+                                        <th class="px-4 py-2.5 font-semibold">Estado</th>
+                                        <th class="px-4 py-2.5 font-semibold text-right">Total</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-terminal-border text-xs">
+                                    <template x-for="order in salesOrders.slice(0, 5)" :key="order.id">
+                                        <tr class="hover:bg-terminal-surface transition">
+                                            <td class="px-4 py-3 font-medium text-terminal-accent" x-text="order.id"></td>
+                                            <td class="px-4 py-3 text-terminal-text" x-text="order.client"></td>
+                                            <td class="px-4 py-3 text-terminal-textMuted" x-text="order.date"></td>
+                                            <td class="px-4 py-3">
+                                                <span class="px-2 py-0.5 text-xs font-medium rounded"
+                                                      :class="{
+                                                          'text-terminal-bg bg-terminal-success': order.status === 'Completado',
+                                                          'text-terminal-bg bg-terminal-warning': order.status === 'Pendiente',
+                                                          'text-terminal-bg bg-terminal-accent': order.status === 'En Proceso'
+                                                      }"
+                                                      x-text="order.status"></span>
+                                            </td>
+                                            <td class="px-4 py-3 text-right font-medium text-terminal-text" x-text="formatCurrency(order.total)"></td>
+                                            <td class="px-4 py-3 text-center">
+                                                <button @click="viewOrder(order)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-eye"></i></button>
+                                                <button @click="editOrder(order)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-edit"></i></button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Finance Module -->
+                <div x-show="currentModule === 'finance'" x-transition.opacity>
+                    <!-- Periods -->
+                    <div x-show="currentSubmodule === 'periods'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Periodos_Contables</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Gestión de periodos fiscales</p>
+                            </div>
+                            <button @click="showModal('period')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nuevo Periodo
+                            </button>
+                        </div>
+
+                        <div class="cmd-card rounded overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="bg-terminal-bg text-terminal-textMuted text-xs uppercase">
+                                        <th class="px-4 py-2.5 font-semibold">ID</th>
+                                        <th class="px-4 py-2.5 font-semibold">Año</th>
+                                        <th class="px-4 py-2.5 font-semibold">Mes</th>
+                                        <th class="px-4 py-2.5 font-semibold">Estado</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-terminal-border text-xs">
+                                    <template x-for="period in periods" :key="period.id">
+                                        <tr class="hover:bg-terminal-surface">
+                                            <td class="px-4 py-3 font-medium" x-text="period.id"></td>
+                                            <td class="px-4 py-3" x-text="period.year"></td>
+                                            <td class="px-4 py-3" x-text="period.month"></td>
+                                            <td class="px-4 py-3">
+                                                <span class="px-2 py-0.5 text-xs font-medium rounded"
+                                                      :class="period.closed ? 'text-terminal-bg bg-terminal-error' : 'text-terminal-bg bg-terminal-success'"
+                                                      x-text="period.closed ? 'Cerrado' : 'Abierto'"></span>
+                                            </td>
+                                            <td class="px-4 py-3 text-center">
+                                                <button @click="togglePeriod(period)" class="text-terminal-textMuted hover:text-terminal-accent mx-1" title="Cerrar/Abrir">
+                                                    <i class="fas" :class="period.closed ? 'fa-lock-open' : 'fa-lock'"></i>
+                                                </button>
+                                                <button @click="deletePeriod(period)" class="text-terminal-textMuted hover:text-terminal-error mx-1" title="Eliminar">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Accounts -->
+                    <div x-show="currentSubmodule === 'accounts'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Cuentas_Contables</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Plan de cuentas</p>
+                            </div>
+                            <button @click="showModal('account')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nueva Cuenta
+                            </button>
+                        </div>
+
+                        <div class="cmd-card rounded overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="bg-terminal-bg text-terminal-textMuted text-xs uppercase">
+                                        <th class="px-4 py-2.5 font-semibold">Código</th>
+                                        <th class="px-4 py-2.5 font-semibold">Nombre</th>
+                                        <th class="px-4 py-2.5 font-semibold">Tipo</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-terminal-border text-xs">
+                                    <template x-for="account in accounts" :key="account.id">
+                                        <tr class="hover:bg-terminal-surface">
+                                            <td class="px-4 py-3 font-medium text-terminal-accent" x-text="account.code"></td>
+                                            <td class="px-4 py-3" x-text="account.name"></td>
+                                            <td class="px-4 py-3">
+                                                <span class="px-2 py-0.5 text-xs font-medium rounded bg-terminal-surface text-terminal-text" x-text="account.type"></span>
+                                            </td>
+                                            <td class="px-4 py-3 text-center">
+                                                <button @click="editAccount(account)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-edit"></i></button>
+                                                <button @click="deleteAccount(account)" class="text-terminal-textMuted hover:text-terminal-error mx-1"><i class="fas fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Journal Entries -->
+                    <div x-show="currentSubmodule === 'entries'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Asientos_Contables</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Registro de movimientos contables</p>
+                            </div>
+                            <button @click="showModal('entry')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nuevo Asiento
+                            </button>
+                        </div>
+
+                        <div class="cmd-card rounded overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="bg-terminal-bg text-terminal-textMuted text-xs uppercase">
+                                        <th class="px-4 py-2.5 font-semibold">ID</th>
+                                        <th class="px-4 py-2.5 font-semibold">Fecha</th>
+                                        <th class="px-4 py-2.5 font-semibold">Glosa</th>
+                                        <th class="px-4 py-2.5 font-semibold">Periodo</th>
+                                        <th class="px-4 py-2.5 font-semibold text-right">Debe</th>
+                                        <th class="px-4 py-2.5 font-semibold text-right">Haber</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-terminal-border text-xs">
+                                    <template x-for="entry in journalEntries" :key="entry.id">
+                                        <tr class="hover:bg-terminal-surface">
+                                            <td class="px-4 py-3 font-medium" x-text="entry.id"></td>
+                                            <td class="px-4 py-3" x-text="entry.date"></td>
+                                            <td class="px-4 py-3" x-text="entry.description"></td>
+                                            <td class="px-4 py-3" x-text="entry.period"></td>
+                                            <td class="px-4 py-3 text-right text-terminal-success" x-text="formatCurrency(entry.debit)"></td>
+                                            <td class="px-4 py-3 text-right text-terminal-error" x-text="formatCurrency(entry.credit)"></td>
+                                            <td class="px-4 py-3 text-center">
+                                                <button @click="viewEntry(entry)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-eye"></i></button>
+                                                <button @click="deleteEntry(entry)" class="text-terminal-textMuted hover:text-terminal-error mx-1"><i class="fas fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- HR Module -->
+                <div x-show="currentModule === 'hr'" x-transition.opacity>
+                    <!-- Employees -->
+                    <div x-show="currentSubmodule === 'employees'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Empleados</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Gestión de personal</p>
+                            </div>
+                            <button @click="showModal('employee')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nuevo Empleado
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <template x-for="employee in employees" :key="employee.id">
+                                <div class="cmd-card rounded p-4 hover:border-terminal-accent transition">
+                                    <div class="flex items-center gap-3 mb-3">
+                                        <div class="w-12 h-12 rounded bg-terminal-accent flex items-center justify-center text-terminal-bg text-lg font-bold">
+                                            <span x-text="employee.name.charAt(0)"></span>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-bold text-terminal-text" x-text="employee.name"></h3>
+                                            <p class="text-xs text-terminal-textMuted" x-text="employee.position"></p>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-1.5 text-xs">
+                                        <p class="text-terminal-text"><i class="fas fa-id-card w-4 text-terminal-textMuted"></i> <span x-text="employee.dni"></span></p>
+                                        <p class="text-terminal-text"><i class="fas fa-envelope w-4 text-terminal-textMuted"></i> <span x-text="employee.email"></span></p>
+                                        <p class="text-terminal-text"><i class="fas fa-phone w-4 text-terminal-textMuted"></i> <span x-text="employee.phone"></span></p>
+                                        <p class="text-terminal-text"><i class="fas fa-calendar w-4 text-terminal-textMuted"></i> Ingreso: <span x-text="employee.hireDate"></span></p>
+                                    </div>
+                                    <div class="mt-3 flex gap-2">
+                                        <button @click="editEmployee(employee)" class="flex-1 bg-terminal-surface text-terminal-accent py-1.5 rounded text-xs hover:bg-terminal-accent hover:text-terminal-bg transition">Editar</button>
+                                        <button @click="deleteEmployee(employee)" class="flex-1 bg-terminal-surface text-terminal-error py-1.5 rounded text-xs hover:bg-terminal-error hover:text-terminal-bg transition">Eliminar</button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Positions -->
+                    <div x-show="currentSubmodule === 'positions'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Puestos_Trabajo</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Estructura organizacional</p>
+                            </div>
+                            <button @click="showModal('position')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nuevo Puesto
+                            </button>
+                        </div>
+
+                        <div class="cmd-card rounded overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="bg-terminal-bg text-terminal-textMuted text-xs uppercase">
+                                        <th class="px-4 py-2.5 font-semibold">ID</th>
+                                        <th class="px-4 py-2.5 font-semibold">Nombre del Puesto</th>
+                                        <th class="px-4 py-2.5 font-semibold">Salario Base</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-terminal-border text-xs">
+                                    <template x-for="position in positions" :key="position.id">
+                                        <tr class="hover:bg-terminal-surface">
+                                            <td class="px-4 py-3 font-medium" x-text="position.id"></td>
+                                            <td class="px-4 py-3" x-text="position.name"></td>
+                                            <td class="px-4 py-3 text-terminal-success" x-text="formatCurrency(position.salary)"></td>
+                                            <td class="px-4 py-3 text-center">
+                                                <button @click="editPosition(position)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-edit"></i></button>
+                                                <button @click="deletePosition(position)" class="text-terminal-textMuted hover:text-terminal-error mx-1"><i class="fas fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Contracts -->
+                    <div x-show="currentSubmodule === 'contracts'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Contratos</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Gestión de contratos laborales</p>
+                            </div>
+                            <button @click="showModal('contract')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nuevo Contrato
+                            </button>
+                        </div>
+
+                        <div class="cmd-card rounded overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="bg-terminal-bg text-terminal-textMuted text-xs uppercase">
+                                        <th class="px-4 py-2.5 font-semibold">ID</th>
+                                        <th class="px-4 py-2.5 font-semibold">Empleado</th>
+                                        <th class="px-4 py-2.5 font-semibold">Puesto</th>
+                                        <th class="px-4 py-2.5 font-semibold">Inicio</th>
+                                        <th class="px-4 py-2.5 font-semibold">Fin</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-terminal-border text-xs">
+                                    <template x-for="contract in contracts" :key="contract.id">
+                                        <tr class="hover:bg-terminal-surface">
+                                            <td class="px-4 py-3 font-medium" x-text="contract.id"></td>
+                                            <td class="px-4 py-3" x-text="contract.employee"></td>
+                                            <td class="px-4 py-3" x-text="contract.position"></td>
+                                            <td class="px-4 py-3" x-text="contract.startDate"></td>
+                                            <td class="px-4 py-3" x-text="contract.endDate || 'Indefinido'"></td>
+                                            <td class="px-4 py-3 text-center">
+                                                <button @click="viewContract(contract)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-eye"></i></button>
+                                                <button @click="deleteContract(contract)" class="text-terminal-textMuted hover:text-terminal-error mx-1"><i class="fas fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Payroll -->
+                    <div x-show="currentSubmodule === 'payroll'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Nominas</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Procesamiento de nóminas</p>
+                            </div>
+                            <button @click="showModal('payroll')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nueva Nómina
+                            </button>
+                        </div>
+
+                        <div class="cmd-card rounded overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="bg-terminal-bg text-terminal-textMuted text-xs uppercase">
+                                        <th class="px-4 py-2.5 font-semibold">ID</th>
+                                        <th class="px-4 py-2.5 font-semibold">Empleado</th>
+                                        <th class="px-4 py-2.5 font-semibold">Periodo</th>
+                                        <th class="px-4 py-2.5 font-semibold text-right">Bruto</th>
+                                        <th class="px-4 py-2.5 font-semibold text-right">Deducciones</th>
+                                        <th class="px-4 py-2.5 font-semibold text-right">Neto</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-terminal-border text-xs">
+                                    <template x-for="payroll in payrolls" :key="payroll.id">
+                                        <tr class="hover:bg-terminal-surface">
+                                            <td class="px-4 py-3 font-medium" x-text="payroll.id"></td>
+                                            <td class="px-4 py-3" x-text="payroll.employee"></td>
+                                            <td class="px-4 py-3" x-text="payroll.period"></td>
+                                            <td class="px-4 py-3 text-right" x-text="formatCurrency(payroll.gross)"></td>
+                                            <td class="px-4 py-3 text-right text-terminal-error" x-text="'-' + formatCurrency(payroll.deductions)"></td>
+                                            <td class="px-4 py-3 text-right font-bold text-terminal-success" x-text="formatCurrency(payroll.net)"></td>
+                                            <td class="px-4 py-3 text-center">
+                                                <button @click="printPayroll(payroll)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-print"></i></button>
+                                                <button @click="deletePayroll(payroll)" class="text-terminal-textMuted hover:text-terminal-error mx-1"><i class="fas fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CRM Module -->
+                <div x-show="currentModule === 'crm'" x-transition.opacity>
+                    <!-- Clients -->
+                    <div x-show="currentSubmodule === 'clients'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Clientes</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Gestión de cartera de clientes</p>
+                            </div>
+                            <button @click="showModal('client')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nuevo Cliente
+                            </button>
+                        </div>
+
+                        <div class="cmd-card rounded overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="bg-terminal-bg text-terminal-textMuted text-xs uppercase">
+                                        <th class="px-4 py-2.5 font-semibold">ID</th>
+                                        <th class="px-4 py-2.5 font-semibold">Documento</th>
+                                        <th class="px-4 py-2.5 font-semibold">Nombre</th>
+                                        <th class="px-4 py-2.5 font-semibold">Email</th>
+                                        <th class="px-4 py-2.5 font-semibold">Teléfono</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-terminal-border text-xs">
+                                    <template x-for="client in clients" :key="client.id">
+                                        <tr class="hover:bg-terminal-surface">
+                                            <td class="px-4 py-3 font-medium" x-text="client.id"></td>
+                                            <td class="px-4 py-3" x-text="client.document"></td>
+                                            <td class="px-4 py-3 font-medium" x-text="client.name"></td>
+                                            <td class="px-4 py-3" x-text="client.email"></td>
+                                            <td class="px-4 py-3" x-text="client.phone"></td>
+                                            <td class="px-4 py-3 text-center">
+                                                <button @click="editClient(client)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-edit"></i></button>
+                                                <button @click="deleteClient(client)" class="text-terminal-textMuted hover:text-terminal-error mx-1"><i class="fas fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Projects -->
+                    <div x-show="currentSubmodule === 'projects'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Proyectos</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Gestión de proyectos por cliente</p>
+                            </div>
+                            <button @click="showModal('project')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nuevo Proyecto
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <template x-for="project in projects" :key="project.id">
+                                <div class="cmd-card rounded p-4 hover:border-terminal-accent transition">
+                                    <div class="flex justify-between items-start mb-3">
+                                        <h3 class="font-bold text-terminal-text" x-text="project.name"></h3>
+                                        <span class="px-2 py-0.5 text-xs font-medium rounded"
+                                              :class="{
+                                                  'text-terminal-bg bg-terminal-success': project.status === 'Activo',
+                                                  'text-terminal-bg bg-terminal-warning': project.status === 'En Pausa',
+                                                  'text-terminal-text bg-terminal-surface': project.status === 'Completado'
+                                              }"
+                                              x-text="project.status"></span>
+                                    </div>
+                                    <p class="text-xs text-terminal-textMuted mb-2"><i class="fas fa-user-tie w-4"></i> <span x-text="project.client"></span></p>
+                                    <p class="text-xs text-terminal-textMuted mb-2"><i class="fas fa-calendar w-4"></i> <span x-text="project.startDate"></span></p>
+                                    <div class="mt-3 flex gap-2">
+                                        <button @click="viewProject(project)" class="flex-1 bg-terminal-surface text-terminal-accent py-1.5 rounded text-xs hover:bg-terminal-accent hover:text-terminal-bg transition">Ver</button>
+                                        <button @click="deleteProject(project)" class="flex-1 bg-terminal-surface text-terminal-error py-1.5 rounded text-xs hover:bg-terminal-error hover:text-terminal-bg transition">Eliminar</button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Assignments -->
+                    <div x-show="currentSubmodule === 'assignments'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Asignaciones</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Asignación de empleados a proyectos</p>
+                            </div>
+                            <button @click="showModal('assignment')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nueva Asignación
+                            </button>
+                        </div>
+
+                        <div class="cmd-card rounded overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="bg-terminal-bg text-terminal-textMuted text-xs uppercase">
+                                        <th class="px-4 py-2.5 font-semibold">ID</th>
+                                        <th class="px-4 py-2.5 font-semibold">Empleado</th>
+                                        <th class="px-4 py-2.5 font-semibold">Proyecto</th>
+                                        <th class="px-4 py-2.5 font-semibold">Horas</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-terminal-border text-xs">
+                                    <template x-for="assignment in assignments" :key="assignment.id">
+                                        <tr class="hover:bg-terminal-surface">
+                                            <td class="px-4 py-3 font-medium" x-text="assignment.id"></td>
+                                            <td class="px-4 py-3" x-text="assignment.employee"></td>
+                                            <td class="px-4 py-3" x-text="assignment.project"></td>
+                                            <td class="px-4 py-3" x-text="assignment.hours + ' hrs'"></td>
+                                            <td class="px-4 py-3 text-center">
+                                                <button @click="editAssignment(assignment)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-edit"></i></button>
+                                                <button @click="deleteAssignment(assignment)" class="text-terminal-textMuted hover:text-terminal-error mx-1"><i class="fas fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Inventory Module -->
+                <div x-show="currentModule === 'inventory'" x-transition.opacity>
+                    <!-- Warehouses -->
+                    <div x-show="currentSubmodule === 'warehouses'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Almacenes</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Gestión de ubicaciones de almacenamiento</p>
+                            </div>
+                            <button @click="showModal('warehouse')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nuevo Almacén
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <template x-for="warehouse in warehouses" :key="warehouse.id">
+                                <div class="cmd-card rounded p-4 hover:border-terminal-accent transition">
+                                    <div class="flex items-center gap-3 mb-3">
+                                        <div class="w-10 h-10 rounded bg-terminal-accent bg-opacity-10 flex items-center justify-center text-terminal-accent">
+                                            <i class="fas fa-warehouse"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-bold text-terminal-text" x-text="warehouse.name"></h3>
+                                            <p class="text-xs text-terminal-textMuted">ID: <span x-text="warehouse.id"></span></p>
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-terminal-text mb-3"><i class="fas fa-map-marker-alt w-4 text-terminal-textMuted"></i> <span x-text="warehouse.address"></span></p>
+                                    <div class="flex gap-2">
+                                        <button @click="editWarehouse(warehouse)" class="flex-1 bg-terminal-surface text-terminal-accent py-1.5 rounded text-xs hover:bg-terminal-accent hover:text-terminal-bg transition">Editar</button>
+                                        <button @click="deleteWarehouse(warehouse)" class="flex-1 bg-terminal-surface text-terminal-error py-1.5 rounded text-xs hover:bg-terminal-error hover:text-terminal-bg transition">Eliminar</button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Suppliers -->
+                    <div x-show="currentSubmodule === 'suppliers'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Proveedores</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Gestión de proveedores</p>
+                            </div>
+                            <button @click="showModal('supplier')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nuevo Proveedor
+                            </button>
+                        </div>
+
+                        <div class="cmd-card rounded overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="bg-terminal-bg text-terminal-textMuted text-xs uppercase">
+                                        <th class="px-4 py-2.5 font-semibold">ID</th>
+                                        <th class="px-4 py-2.5 font-semibold">RUC</th>
+                                        <th class="px-4 py-2.5 font-semibold">Nombre</th>
+                                        <th class="px-4 py-2.5 font-semibold">Teléfono</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-terminal-border text-xs">
+                                    <template x-for="supplier in suppliers" :key="supplier.id">
+                                        <tr class="hover:bg-terminal-surface">
+                                            <td class="px-4 py-3 font-medium" x-text="supplier.id"></td>
+                                            <td class="px-4 py-3" x-text="supplier.ruc"></td>
+                                            <td class="px-4 py-3 font-medium" x-text="supplier.name"></td>
+                                            <td class="px-4 py-3" x-text="supplier.phone"></td>
+                                            <td class="px-4 py-3 text-center">
+                                                <button @click="editSupplier(supplier)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-edit"></i></button>
+                                                <button @click="deleteSupplier(supplier)" class="text-terminal-textMuted hover:text-terminal-error mx-1"><i class="fas fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Categories -->
+                    <div x-show="currentSubmodule === 'categories'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Categorias_Productos</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Clasificación de productos</p>
+                            </div>
+                            <button @click="showModal('category')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nueva Categoría
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <template x-for="category in categories" :key="category.id">
+                                <div class="cmd-card rounded p-4 hover:border-terminal-accent transition text-center">
+                                    <div class="w-14 h-14 rounded-full bg-terminal-accent bg-opacity-10 flex items-center justify-center text-terminal-accent mx-auto mb-3">
+                                        <i class="fas fa-tags text-xl"></i>
+                                    </div>
+                                    <h3 class="font-bold text-terminal-text mb-1" x-text="category.name"></h3>
+                                    <p class="text-xs text-terminal-textMuted mb-3">ID: <span x-text="category.id"></span></p>
+                                    <div class="flex gap-2">
+                                        <button @click="editCategory(category)" class="flex-1 bg-terminal-surface text-terminal-accent py-1.5 rounded text-xs hover:bg-terminal-accent hover:text-terminal-bg transition">Editar</button>
+                                        <button @click="deleteCategory(category)" class="flex-1 bg-terminal-surface text-terminal-error py-1.5 rounded text-xs hover:bg-terminal-error hover:text-terminal-bg transition">Eliminar</button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Products -->
+                    <div x-show="currentSubmodule === 'products'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Productos</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Catálogo de productos</p>
+                            </div>
+                            <button @click="showModal('product')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nuevo Producto
+                            </button>
+                        </div>
+
+                        <div class="cmd-card rounded overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="bg-terminal-bg text-terminal-textMuted text-xs uppercase">
+                                        <th class="px-4 py-2.5 font-semibold">Código</th>
+                                        <th class="px-4 py-2.5 font-semibold">Nombre</th>
+                                        <th class="px-4 py-2.5 font-semibold">Categoría</th>
+                                        <th class="px-4 py-2.5 font-semibold text-right">P. Compra</th>
+                                        <th class="px-4 py-2.5 font-semibold text-right">P. Venta</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-terminal-border text-xs">
+                                    <template x-for="product in products" :key="product.id">
+                                        <tr class="hover:bg-terminal-surface">
+                                            <td class="px-4 py-3 font-medium text-terminal-accent" x-text="product.code"></td>
+                                            <td class="px-4 py-3 font-medium" x-text="product.name"></td>
+                                            <td class="px-4 py-3" x-text="product.category"></td>
+                                            <td class="px-4 py-3 text-right" x-text="formatCurrency(product.buyPrice)"></td>
+                                            <td class="px-4 py-3 text-right font-semibold text-terminal-success" x-text="formatCurrency(product.sellPrice)"></td>
+                                            <td class="px-4 py-3 text-center">
+                                                <button @click="editProduct(product)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-edit"></i></button>
+                                                <button @click="deleteProduct(product)" class="text-terminal-textMuted hover:text-terminal-error mx-1"><i class="fas fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Stock -->
+                    <div x-show="currentSubmodule === 'stock'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Inventario_Por_Almacen</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Control de stock en tiempo real</p>
+                            </div>
+                            <button @click="showModal('stock')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Ajuste de Stock
+                            </button>
+                        </div>
+
+                        <div class="cmd-card rounded overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="bg-terminal-bg text-terminal-textMuted text-xs uppercase">
+                                        <th class="px-4 py-2.5 font-semibold">Producto</th>
+                                        <th class="px-4 py-2.5 font-semibold">Almacén</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Cantidad</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Mínimo</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Estado</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-terminal-border text-xs">
+                                    <template x-for="item in inventory" :key="item.id">
+                                        <tr class="hover:bg-terminal-surface">
+                                            <td class="px-4 py-3 font-medium" x-text="item.product"></td>
+                                            <td class="px-4 py-3" x-text="item.warehouse"></td>
+                                            <td class="px-4 py-3 text-center font-bold" x-text="item.quantity"></td>
+                                            <td class="px-4 py-3 text-center" x-text="item.minStock"></td>
+                                            <td class="px-4 py-3 text-center">
+                                                <span class="px-2 py-0.5 text-xs font-medium rounded"
+                                                      :class="item.quantity <= item.minStock ? 'text-terminal-bg bg-terminal-error' : 'text-terminal-bg bg-terminal-success'"
+                                                      x-text="item.quantity <= item.minStock ? 'Crítico' : 'Normal'"></span>
+                                            </td>
+                                            <td class="px-4 py-3 text-center">
+                                                <button @click="adjustStock(item)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-edit"></i></button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sales Module -->
+                <div x-show="currentModule === 'sales'" x-transition.opacity>
+                    <!-- Orders -->
+                    <div x-show="currentSubmodule === 'orders'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Ordenes_Venta</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Gestión de pedidos de clientes</p>
+                            </div>
+                            <button @click="showModal('order')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nueva Orden
+                            </button>
+                        </div>
+
+                        <div class="cmd-card rounded overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="bg-terminal-bg text-terminal-textMuted text-xs uppercase">
+                                        <th class="px-4 py-2.5 font-semibold">ID</th>
+                                        <th class="px-4 py-2.5 font-semibold">Cliente</th>
+                                        <th class="px-4 py-2.5 font-semibold">Fecha</th>
+                                        <th class="px-4 py-2.5 font-semibold">Estado</th>
+                                        <th class="px-4 py-2.5 font-semibold text-right">Total</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-terminal-border text-xs">
+                                    <template x-for="order in salesOrders" :key="order.id">
+                                        <tr class="hover:bg-terminal-surface">
+                                            <td class="px-4 py-3 font-medium text-terminal-accent" x-text="order.id"></td>
+                                            <td class="px-4 py-3" x-text="order.client"></td>
+                                            <td class="px-4 py-3" x-text="order.date"></td>
+                                            <td class="px-4 py-3">
+                                                <span class="px-2 py-0.5 text-xs font-medium rounded"
+                                                      :class="{
+                                                          'text-terminal-bg bg-terminal-success': order.status === 'Completado',
+                                                          'text-terminal-bg bg-terminal-warning': order.status === 'Pendiente',
+                                                          'text-terminal-bg bg-terminal-accent': order.status === 'En Proceso'
+                                                      }"
+                                                      x-text="order.status"></span>
+                                            </td>
+                                            <td class="px-4 py-3 text-right font-medium" x-text="formatCurrency(order.total)"></td>
+                                            <td class="px-4 py-3 text-center">
+                                                <button @click="viewOrder(order)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-eye"></i></button>
+                                                <button @click="editOrder(order)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-edit"></i></button>
+                                                <button @click="deleteOrder(order)" class="text-terminal-textMuted hover:text-terminal-error mx-1"><i class="fas fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Invoices -->
+                    <div x-show="currentSubmodule === 'invoices'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Facturas</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Emisión de facturas</p>
+                            </div>
+                            <button @click="showModal('invoice')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nueva Factura
+                            </button>
+                        </div>
+
+                        <div class="cmd-card rounded overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="bg-terminal-bg text-terminal-textMuted text-xs uppercase">
+                                        <th class="px-4 py-2.5 font-semibold">ID</th>
+                                        <th class="px-4 py-2.5 font-semibold">Orden</th>
+                                        <th class="px-4 py-2.5 font-semibold">Fecha</th>
+                                        <th class="px-4 py-2.5 font-semibold">Estado Pago</th>
+                                        <th class="px-4 py-2.5 font-semibold text-right">Total</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-terminal-border text-xs">
+                                    <template x-for="invoice in invoices" :key="invoice.id">
+                                        <tr class="hover:bg-terminal-surface">
+                                            <td class="px-4 py-3 font-medium" x-text="invoice.id"></td>
+                                            <td class="px-4 py-3" x-text="invoice.order"></td>
+                                            <td class="px-4 py-3" x-text="invoice.date"></td>
+                                            <td class="px-4 py-3">
+                                                <span class="px-2 py-0.5 text-xs font-medium rounded"
+                                                      :class="invoice.paymentStatus === 'Pagado' ? 'text-terminal-bg bg-terminal-success' : 'text-terminal-bg bg-terminal-warning'"
+                                                      x-text="invoice.paymentStatus"></span>
+                                            </td>
+                                            <td class="px-4 py-3 text-right font-medium" x-text="formatCurrency(invoice.total)"></td>
+                                            <td class="px-4 py-3 text-center">
+                                                <button @click="printInvoice(invoice)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-print"></i></button>
+                                                <button @click="deleteInvoice(invoice)" class="text-terminal-textMuted hover:text-terminal-error mx-1"><i class="fas fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Payments -->
+                    <div x-show="currentSubmodule === 'payments'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Pagos</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Registro de pagos recibidos</p>
+                            </div>
+                            <button @click="showModal('payment')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nuevo Pago
+                            </button>
+                        </div>
+
+                        <div class="cmd-card rounded overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="bg-terminal-bg text-terminal-textMuted text-xs uppercase">
+                                        <th class="px-4 py-2.5 font-semibold">ID</th>
+                                        <th class="px-4 py-2.5 font-semibold">Factura</th>
+                                        <th class="px-4 py-2.5 font-semibold">Fecha</th>
+                                        <th class="px-4 py-2.5 font-semibold">Método</th>
+                                        <th class="px-4 py-2.5 font-semibold text-right">Monto</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-terminal-border text-xs">
+                                    <template x-for="payment in payments" :key="payment.id">
+                                        <tr class="hover:bg-terminal-surface">
+                                            <td class="px-4 py-3 font-medium" x-text="payment.id"></td>
+                                            <td class="px-4 py-3" x-text="payment.invoice"></td>
+                                            <td class="px-4 py-3" x-text="payment.date"></td>
+                                            <td class="px-4 py-3" x-text="payment.method"></td>
+                                            <td class="px-4 py-3 text-right font-medium text-terminal-success" x-text="formatCurrency(payment.amount)"></td>
+                                            <td class="px-4 py-3 text-center">
+                                                <button @click="viewPayment(payment)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-eye"></i></button>
+                                                <button @click="deletePayment(payment)" class="text-terminal-textMuted hover:text-terminal-error mx-1"><i class="fas fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Purchasing Module -->
+                <div x-show="currentModule === 'purchasing'" x-transition.opacity>
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h1 class="text-2xl font-bold text-terminal-text">> Ordenes_Compra</h1>
+                            <p class="text-terminal-textMuted text-sm mt-1">Gestión de compras a proveedores</p>
+                        </div>
+                        <button @click="showModal('purchaseOrder')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                            <i class="fas fa-plus"></i> Nueva Orden de Compra
+                        </button>
+                    </div>
+
+                    <div class="cmd-card rounded overflow-hidden">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="bg-terminal-bg text-terminal-textMuted text-xs uppercase">
+                                    <th class="px-4 py-2.5 font-semibold">ID</th>
+                                    <th class="px-4 py-2.5 font-semibold">Proveedor</th>
+                                    <th class="px-4 py-2.5 font-semibold">Fecha</th>
+                                    <th class="px-4 py-2.5 font-semibold">Estado</th>
+                                    <th class="px-4 py-2.5 font-semibold text-right">Total</th>
+                                    <th class="px-4 py-2.5 font-semibold text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-terminal-border text-xs">
+                                <template x-for="order in purchaseOrders" :key="order.id">
+                                    <tr class="hover:bg-terminal-surface">
+                                        <td class="px-4 py-3 font-medium" x-text="order.id"></td>
+                                        <td class="px-4 py-3" x-text="order.supplier"></td>
+                                        <td class="px-4 py-3" x-text="order.date"></td>
+                                        <td class="px-4 py-3">
+                                            <span class="px-2 py-0.5 text-xs font-medium rounded"
+                                                  :class="{
+                                                      'text-terminal-bg bg-terminal-success': order.status === 'Recibido',
+                                                      'text-terminal-bg bg-terminal-warning': order.status === 'Pendiente',
+                                                      'text-terminal-bg bg-terminal-accent': order.status === 'En Proceso'
+                                                  }"
+                                                  x-text="order.status"></span>
+                                        </td>
+                                        <td class="px-4 py-3 text-right font-medium" x-text="formatCurrency(order.total)"></td>
+                                        <td class="px-4 py-3 text-center">
+                                            <button @click="viewPurchaseOrder(order)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-eye"></i></button>
+                                            <button @click="editPurchaseOrder(order)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-edit"></i></button>
+                                            <button @click="deletePurchaseOrder(order)" class="text-terminal-textMuted hover:text-terminal-error mx-1"><i class="fas fa-trash"></i></button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Production Module -->
+                <div x-show="currentModule === 'production'" x-transition.opacity>
+                    <!-- Work Orders -->
+                    <div x-show="currentSubmodule === 'workOrders'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Ordenes_Produccion</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Control de órdenes de manufactura</p>
+                            </div>
+                            <button @click="showModal('workOrder')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nueva Orden
+                            </button>
+                        </div>
+
+                        <div class="cmd-card rounded overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="bg-terminal-bg text-terminal-textMuted text-xs uppercase">
+                                        <th class="px-4 py-2.5 font-semibold">ID</th>
+                                        <th class="px-4 py-2.5 font-semibold">Producto</th>
+                                        <th class="px-4 py-2.5 font-semibold">Cantidad</th>
+                                        <th class="px-4 py-2.5 font-semibold">Fecha Inicio</th>
+                                        <th class="px-4 py-2.5 font-semibold">Estado</th>
+                                        <th class="px-4 py-2.5 font-semibold text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-terminal-border text-xs">
+                                    <template x-for="order in workOrders" :key="order.id">
+                                        <tr class="hover:bg-terminal-surface">
+                                            <td class="px-4 py-3 font-medium" x-text="order.id"></td>
+                                            <td class="px-4 py-3" x-text="order.product"></td>
+                                            <td class="px-4 py-3" x-text="order.quantity"></td>
+                                            <td class="px-4 py-3" x-text="order.startDate"></td>
+                                            <td class="px-4 py-3">
+                                                <span class="px-2 py-0.5 text-xs font-medium rounded"
+                                                      :class="{
+                                                          'text-terminal-bg bg-terminal-success': order.status === 'Completado',
+                                                          'text-terminal-bg bg-terminal-accent': order.status === 'En Proceso',
+                                                          'text-terminal-text bg-terminal-surface': order.status === 'Planificado'
+                                                      }"
+                                                      x-text="order.status"></span>
+                                            </td>
+                                            <td class="px-4 py-3 text-center">
+                                                <button @click="viewWorkOrder(order)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-eye"></i></button>
+                                                <button @click="editWorkOrder(order)" class="text-terminal-textMuted hover:text-terminal-accent mx-1"><i class="fas fa-edit"></i></button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- BOM -->
+                    <div x-show="currentSubmodule === 'bom'">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-terminal-text">> Recetas_BOM</h1>
+                                <p class="text-terminal-textMuted text-sm mt-1">Listas de materiales por producto</p>
+                            </div>
+                            <button @click="showModal('bom')" class="cmd-btn bg-terminal-success text-terminal-bg px-4 py-2 rounded text-sm font-medium flex items-center gap-2">
+                                <i class="fas fa-plus"></i> Nueva Receta
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <template x-for="bom in boms" :key="bom.id">
+                                <div class="cmd-card rounded p-4 hover:border-terminal-accent transition">
+                                    <div class="flex justify-between items-start mb-3">
+                                        <h3 class="font-bold text-terminal-text" x-text="bom.product"></h3>
+                                        <span class="text-xs text-terminal-textMuted">v<span x-text="bom.version"></span></span>
+                                    </div>
+                                    <div class="space-y-1.5 text-xs">
+                                        <template x-for="(material, idx) in bom.materials" :key="idx">
+                                            <div class="flex justify-between py-1 border-b border-terminal-border">
+                                                <span class="text-terminal-text" x-text="material.name"></span>
+                                                <span class="font-medium" x-text="material.quantity + ' ' + material.unit"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <div class="mt-3 flex gap-2">
+                                        <button @click="editBom(bom)" class="flex-1 bg-terminal-surface text-terminal-accent py-1.5 rounded text-xs hover:bg-terminal-accent hover:text-terminal-bg transition">Editar</button>
+                                        <button @click="deleteBom(bom)" class="flex-1 bg-terminal-surface text-terminal-error py-1.5 rounded text-xs hover:bg-terminal-error hover:text-terminal-bg transition">Eliminar</button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Core Module -->
+                <div x-show="currentModule === 'core'" x-transition.opacity>
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h1 class="text-2xl font-bold text-terminal-text">> Entidades_Maestras</h1>
+                            <p class="text-terminal-textMuted text-sm mt-1">Configuración central del sistema</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="cmd-card rounded p-4 hover:border-terminal-accent transition cursor-pointer"
+                             @click="navigate('finance', 'periods')">
+                            <div class="w-10 h-10 rounded bg-terminal-accent bg-opacity-10 flex items-center justify-center text-terminal-accent mb-3">
+                                <i class="fas fa-calendar-alt"></i>
+                            </div>
+                            <h3 class="font-bold text-terminal-text mb-1">Periodos_Contables</h3>
+                            <p class="text-xs text-terminal-textMuted">Gestión de años y meses fiscales</p>
+                        </div>
+
+                        <div class="cmd-card rounded p-4 hover:border-terminal-success transition cursor-pointer"
+                             @click="navigate('inventory', 'warehouses')">
+                            <div class="w-10 h-10 rounded bg-terminal-success bg-opacity-10 flex items-center justify-center text-terminal-success mb-3">
+                                <i class="fas fa-warehouse"></i>
+                            </div>
+                            <h3 class="font-bold text-terminal-text mb-1">Almacenes</h3>
+                            <p class="text-xs text-terminal-textMuted">Ubicaciones de almacenamiento</p>
+                        </div>
+
+                        <div class="cmd-card rounded p-4 hover:border-terminal-purple transition cursor-pointer"
+                             @click="navigate('inventory', 'categories')">
+                            <div class="w-10 h-10 rounded bg-terminal-purple bg-opacity-10 flex items-center justify-center text-terminal-purple mb-3">
+                                <i class="fas fa-tags"></i>
+                            </div>
+                            <h3 class="font-bold text-terminal-text mb-1">Categorías</h3>
+                            <p class="text-xs text-terminal-textMuted">Clasificación de productos</p>
+                        </div>
+
+                        <div class="cmd-card rounded p-4 hover:border-terminal-warning transition cursor-pointer"
+                             @click="navigate('hr', 'positions')">
+                            <div class="w-10 h-10 rounded bg-terminal-warning bg-opacity-10 flex items-center justify-center text-terminal-warning mb-3">
+                                <i class="fas fa-briefcase"></i>
+                            </div>
+                            <h3 class="font-bold text-terminal-text mb-1">Puestos</h3>
+                            <p class="text-xs text-terminal-textMuted">Estructura organizacional</p>
+                        </div>
+
+                        <div class="cmd-card rounded p-4 hover:border-terminal-accent transition cursor-pointer"
+                             @click="navigate('finance', 'accounts')">
+                            <div class="w-10 h-10 rounded bg-terminal-accent bg-opacity-10 flex items-center justify-center text-terminal-accent mb-3">
+                                <i class="fas fa-book"></i>
+                            </div>
+                            <h3 class="font-bold text-terminal-text mb-1">Cuentas_Contables</h3>
+                            <p class="text-xs text-terminal-textMuted">Plan de cuentas del sistema</p>
+                        </div>
+
+                        <div class="cmd-card rounded p-4 hover:border-terminal-error transition cursor-pointer">
+                            <div class="w-10 h-10 rounded bg-terminal-error bg-opacity-10 flex items-center justify-center text-terminal-error mb-3">
+                                <i class="fas fa-cog"></i>
+                            </div>
+                            <h3 class="font-bold text-terminal-text mb-1">Configuración</h3>
+                            <p class="text-xs text-terminal-textMuted">Parámetros del sistema</p>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+
+            <!-- Footer -->
+            <footer class="bg-terminal-surface border-t border-terminal-border py-3 px-5">
+                <div class="flex flex-col md:flex-row justify-between items-center text-xs text-terminal-textMuted">
+                    <p>© 2024 ERP_NODE System. Todos los derechos reservados.</p>
+                    <div class="flex gap-4 mt-2 md:mt-0">
+                        <a href="#" class="hover:text-terminal-accent">Privacidad</a>
+                        <a href="#" class="hover:text-terminal-accent">Términos</a>
+                        <a href="#" class="hover:text-terminal-accent">Soporte</a>
+                    </div>
+                </div>
+            </footer>
+
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div x-show="modalOpen" 
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70"
+         x-transition.opacity
+         style="display: none;">
+        <div class="cmd-card rounded w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto"
+             @click.away="modalOpen = false">
+            
+            <div class="flex justify-between items-center p-4 border-b border-terminal-border">
+                <h2 class="text-base font-bold text-terminal-text" x-text="modalTitle"></h2>
+                <button @click="modalOpen = false" class="text-terminal-textMuted hover:text-terminal-text">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="p-4">
+                <!-- Dynamic Modal Content -->
+                <div x-show="modalType === 'employee'">
+                    <form @submit.prevent="saveEmployee">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">DNI</label>
+                                <input x-model="formData.employee.dni" type="text" class="w-full cmd-input rounded px-3 py-2 text-sm" required>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Nombre</label>
+                                <input x-model="formData.employee.name" type="text" class="w-full cmd-input rounded px-3 py-2 text-sm" required>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Email</label>
+                                <input x-model="formData.employee.email" type="email" class="w-full cmd-input rounded px-3 py-2 text-sm" required>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Teléfono</label>
+                                <input x-model="formData.employee.phone" type="text" class="w-full cmd-input rounded px-3 py-2 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Puesto</label>
+                                <select x-model="formData.employee.position" class="w-full cmd-input rounded px-3 py-2 text-sm">
+                                    <template x-for="pos in positions" :key="pos.id">
+                                        <option :value="pos.name" x-text="pos.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Fecha Ingreso</label>
+                                <input x-model="formData.employee.hireDate" type="date" class="w-full cmd-input rounded px-3 py-2 text-sm" required>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex justify-end gap-2">
+                            <button type="button" @click="modalOpen = false" class="px-4 py-2 border border-terminal-border rounded text-sm hover:bg-terminal-surface">Cancelar</button>
+                            <button type="submit" class="px-4 py-2 bg-terminal-success text-terminal-bg rounded text-sm font-medium">Guardar</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div x-show="modalType === 'product'">
+                    <form @submit.prevent="saveProduct">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Código</label>
+                                <input x-model="formData.product.code" type="text" class="w-full cmd-input rounded px-3 py-2 text-sm" required>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Nombre</label>
+                                <input x-model="formData.product.name" type="text" class="w-full cmd-input rounded px-3 py-2 text-sm" required>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Categoría</label>
+                                <select x-model="formData.product.category" class="w-full cmd-input rounded px-3 py-2 text-sm">
+                                    <template x-for="cat in categories" :key="cat.id">
+                                        <option :value="cat.name" x-text="cat.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Proveedor</label>
+                                <select x-model="formData.product.supplier" class="w-full cmd-input rounded px-3 py-2 text-sm">
+                                    <template x-for="sup in suppliers" :key="sup.id">
+                                        <option :value="sup.name" x-text="sup.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Precio Compra</label>
+                                <input x-model="formData.product.buyPrice" type="number" step="0.01" class="w-full cmd-input rounded px-3 py-2 text-sm" required>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Precio Venta</label>
+                                <input x-model="formData.product.sellPrice" type="number" step="0.01" class="w-full cmd-input rounded px-3 py-2 text-sm" required>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Stock</label>
+                                <input x-model="formData.product.stock" type="number" class="w-full cmd-input rounded px-3 py-2 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Stock Mínimo</label>
+                                <input x-model="formData.product.minStock" type="number" class="w-full cmd-input rounded px-3 py-2 text-sm">
+                            </div>
+                        </div>
+                        <div class="mt-4 flex justify-end gap-2">
+                            <button type="button" @click="modalOpen = false" class="px-4 py-2 border border-terminal-border rounded text-sm hover:bg-terminal-surface">Cancelar</button>
+                            <button type="submit" class="px-4 py-2 bg-terminal-success text-terminal-bg rounded text-sm font-medium">Guardar</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div x-show="modalType === 'order'">
+                    <form @submit.prevent="saveOrder">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Cliente</label>
+                                <select x-model="formData.order.client" class="w-full cmd-input rounded px-3 py-2 text-sm">
+                                    <template x-for="client in clients" :key="client.id">
+                                        <option :value="client.name" x-text="client.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Fecha</label>
+                                <input x-model="formData.order.date" type="date" class="w-full cmd-input rounded px-3 py-2 text-sm" required>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Estado</label>
+                                <select x-model="formData.order.status" class="w-full cmd-input rounded px-3 py-2 text-sm">
+                                    <option value="Pendiente">Pendiente</option>
+                                    <option value="En Proceso">En Proceso</option>
+                                    <option value="Completado">Completado</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Total</label>
+                                <input x-model="formData.order.total" type="number" step="0.01" class="w-full cmd-input rounded px-3 py-2 text-sm" required>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex justify-end gap-2">
+                            <button type="button" @click="modalOpen = false" class="px-4 py-2 border border-terminal-border rounded text-sm hover:bg-terminal-surface">Cancelar</button>
+                            <button type="submit" class="px-4 py-2 bg-terminal-success text-terminal-bg rounded text-sm font-medium">Guardar</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div x-show="modalType === 'period'">
+                    <form @submit.prevent="savePeriod">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Año</label>
+                                <input x-model="formData.period.year" type="number" class="w-full cmd-input rounded px-3 py-2 text-sm" required>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-terminal-textMuted mb-1">Mes</label>
+                                <select x-model="formData.period.month" class="w-full cmd-input rounded px-3 py-2 text-sm">
+                                    <option value="Enero">Enero</option>
+                                    <option value="Febrero">Febrero</option>
+                                    <option value="Marzo">Marzo</option>
+                                    <option value="Abril">Abril</option>
+                                    <option value="Mayo">Mayo</option>
+                                    <option value="Junio">Junio</option>
+                                    <option value="Julio">Julio</option>
+                                    <option value="Agosto">Agosto</option>
+                                    <option value="Septiembre">Septiembre</option>
+                                    <option value="Octubre">Octubre</option>
+                                    <option value="Noviembre">Noviembre</option>
+                                    <option value="Diciembre">Diciembre</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex justify-end gap-2">
+                            <button type="button" @click="modalOpen = false" class="px-4 py-2 border border-terminal-border rounded text-sm hover:bg-terminal-surface">Cancelar</button>
+                            <button type="submit" class="px-4 py-2 bg-terminal-success text-terminal-bg rounded text-sm font-medium">Guardar</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Generic message for other modals -->
+                <div x-show="!['employee', 'product', 'order', 'period'].includes(modalType)">
+                    <div class="text-center py-8">
+                        <i class="fas fa-terminal text-4xl text-terminal-textMuted mb-3"></i>
+                        <p class="text-terminal-text">Formulario de <span class="text-terminal-accent" x-text="modalType"></span> en construcción</p>
+                        <p class="text-xs text-terminal-textMuted mt-2">Esta funcionalidad estará disponible pronto</p>
+                    </div>
+                    <div class="mt-4 flex justify-end">
+                        <button @click="modalOpen = false" class="px-4 py-2 bg-terminal-success text-terminal-bg rounded text-sm font-medium">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div x-show="toast.show" 
+         x-transition
+         class="fixed bottom-4 right-4 z-50 px-5 py-2.5 rounded text-terminal-bg text-sm font-medium"
+         :class="toast.type === 'success' ? 'bg-terminal-success' : 'bg-terminal-error'"
+         style="display: none;">
+        <div class="flex items-center gap-2">
+            <i class="fas" :class="toast.type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'"></i>
+            <span x-text="toast.message"></span>
+        </div>
+    </div>
+
+    <script>
+        function erpSystem() {
+            return {
+                sidebarOpen: true,
+                currentModule: 'dashboard',
+                currentSubmodule: '',
+                searchQuery: '',
+                modalOpen: false,
+                modalType: '',
+                modalTitle: '',
+                showNotifications: false,
+                chartInitialized: false,
+                
+                // Data
+                periods: [
+                    { id: 1, year: 2024, month: 'Enero', closed: false },
+                    { id: 2, year: 2024, month: 'Febrero', closed: false },
+                    { id: 3, year: 2024, month: 'Marzo', closed: true },
+                ],
+                accounts: [
+                    { id: 1, code: '1000', name: 'Activo Corriente', type: 'Activo' },
+                    { id: 2, code: '2000', name: 'Pasivo Corriente', type: 'Pasivo' },
+                    { id: 3, code: '3000', name: 'Patrimonio', type: 'Patrimonio' },
+                    { id: 4, code: '4000', name: 'Ingresos', type: 'Ingreso' },
+                    { id: 5, code: '5000', name: 'Gastos', type: 'Gasto' },
+                ],
+                journalEntries: [
+                    { id: 1, date: '2024-01-15', description: 'Venta de productos', period: 'Enero 2024', debit: 5000.00, credit: 0 },
+                    { id: 2, date: '2024-01-15', description: 'Venta de productos', period: 'Enero 2024', debit: 0, credit: 5000.00 },
+                    { id: 3, date: '2024-01-20', description: 'Compra de materiales', period: 'Enero 2024', debit: 2500.00, credit: 0 },
+                ],
+                employees: [
+                    { id: 1, dni: '12345678', name: 'Juan Pérez', email: 'juan@empresa.com', phone: '555-0101', position: 'Gerente', hireDate: '2023-01-15' },
+                    { id: 2, dni: '87654321', name: 'María García', email: 'maria@empresa.com', phone: '555-0102', position: 'Desarrollador', hireDate: '2023-03-20' },
+                    { id: 3, dni: '11223344', name: 'Carlos López', email: 'carlos@empresa.com', phone: '555-0103', position: 'Contador', hireDate: '2023-06-10' },
+                ],
+                positions: [
+                    { id: 1, name: 'Gerente', salary: 5000.00 },
+                    { id: 2, name: 'Desarrollador', salary: 3500.00 },
+                    { id: 3, name: 'Contador', salary: 4000.00 },
+                    { id: 4, name: 'Vendedor', salary: 2500.00 },
+                ],
+                contracts: [
+                    { id: 1, employee: 'Juan Pérez', position: 'Gerente', startDate: '2023-01-15', endDate: '' },
+                    { id: 2, employee: 'María García', position: 'Desarrollador', startDate: '2023-03-20', endDate: '2025-03-20' },
+                ],
+                payrolls: [
+                    { id: 1, employee: 'Juan Pérez', period: 'Enero 2024', gross: 5000.00, deductions: 750.00, net: 4250.00 },
+                    { id: 2, employee: 'María García', period: 'Enero 2024', gross: 3500.00, deductions: 525.00, net: 2975.00 },
+                ],
+                clients: [
+                    { id: 1, document: '20123456789', name: 'Tech Solutions Inc.', email: 'contact@techsolutions.com', phone: '555-1001' },
+                    { id: 2, document: '20987654321', name: 'Global Imports S.A.', email: 'info@globalimports.com', phone: '555-1002' },
+                    { id: 3, document: '20112233445', name: 'Servicios Digitales', email: 'hello@serviciosdigitales.com', phone: '555-1003' },
+                ],
+                projects: [
+                    { id: 1, client: 'Tech Solutions Inc.', name: 'Desarrollo Web', startDate: '2024-01-01', status: 'Activo' },
+                    { id: 2, client: 'Global Imports S.A.', name: 'Sistema ERP', startDate: '2024-02-01', status: 'En Pausa' },
+                    { id: 3, client: 'Servicios Digitales', name: 'App Móvil', startDate: '2024-03-01', status: 'Completado' },
+                ],
+                assignments: [
+                    { id: 1, employee: 'María García', project: 'Desarrollo Web', hours: 40 },
+                    { id: 2, employee: 'Carlos López', project: 'Sistema ERP', hours: 20 },
+                ],
+                warehouses: [
+                    { id: 1, name: 'Almacén Central', address: 'Av. Principal 123' },
+                    { id: 2, name: 'Almacén Norte', address: 'Calle Norte 456' },
+                    { id: 3, name: 'Almacén Sur', address: 'Av. Sur 789' },
+                ],
+                suppliers: [
+                    { id: 1, ruc: '20123456789', name: 'Proveedor A', phone: '555-2001' },
+                    { id: 2, ruc: '20987654321', name: 'Proveedor B', phone: '555-2002' },
+                    { id: 3, ruc: '20112233445', name: 'Proveedor C', phone: '555-2003' },
+                ],
+                categories: [
+                    { id: 1, name: 'Electrónica' },
+                    { id: 2, name: 'Ropa' },
+                    { id: 3, name: 'Alimentos' },
+                    { id: 4, name: 'Herramientas' },
+                ],
+                products: [
+                    { id: 1, code: 'PROD-001', name: 'Laptop Dell', category: 'Electrónica', buyPrice: 800.00, sellPrice: 1200.00, stock: 25, minStock: 10 },
+                    { id: 2, code: 'PROD-002', name: 'Mouse Wireless', category: 'Electrónica', buyPrice: 15.00, sellPrice: 35.00, stock: 150, minStock: 50 },
+                    { id: 3, code: 'PROD-003', name: 'Teclado Mecánico', category: 'Electrónica', buyPrice: 50.00, sellPrice: 89.00, stock: 8, minStock: 20 },
+                    { id: 4, code: 'PROD-004', name: 'Monitor 24"', category: 'Electrónica', buyPrice: 150.00, sellPrice: 250.00, stock: 45, minStock: 15 },
+                ],
+                inventory: [
+                    { id: 1, product: 'Laptop Dell', warehouse: 'Almacén Central', quantity: 25, minStock: 10 },
+                    { id: 2, product: 'Mouse Wireless', warehouse: 'Almacén Central', quantity: 150, minStock: 50 },
+                    { id: 3, product: 'Teclado Mecánico', warehouse: 'Almacén Norte', quantity: 8, minStock: 20 },
+                    { id: 4, product: 'Monitor 24"', warehouse: 'Almacén Sur', quantity: 45, minStock: 15 },
+                ],
+                salesOrders: [
+                    { id: '#ORD-001', client: 'Tech Solutions Inc.', date: '2024-01-15', status: 'Completado', total: 5000.00 },
+                    { id: '#ORD-002', client: 'Global Imports S.A.', date: '2024-01-18', status: 'En Proceso', total: 3500.00 },
+                    { id: '#ORD-003', client: 'Servicios Digitales', date: '2024-01-20', status: 'Pendiente', total: 2000.00 },
+                    { id: '#ORD-004', client: 'Tech Solutions Inc.', date: '2024-01-22', status: 'Completado', total: 7500.00 },
+                    { id: '#ORD-005', client: 'Global Imports S.A.', date: '2024-01-25', status: 'Pendiente', total: 4200.00 },
+                ],
+                invoices: [
+                    { id: '#FAC-001', order: '#ORD-001', date: '2024-01-15', paymentStatus: 'Pagado', total: 5000.00 },
+                    { id: '#FAC-002', order: '#ORD-002', date: '2024-01-18', paymentStatus: 'Pendiente', total: 3500.00 },
+                    { id: '#FAC-003', order: '#ORD-004', date: '2024-01-22', paymentStatus: 'Pagado', total: 7500.00 },
+                ],
+                payments: [
+                    { id: '#PAG-001', invoice: '#FAC-001', date: '2024-01-16', method: 'Transferencia', amount: 5000.00 },
+                    { id: '#PAG-002', invoice: '#FAC-003', date: '2024-01-23', method: 'Tarjeta', amount: 7500.00 },
+                ],
+                purchaseOrders: [
+                    { id: '#OC-001', supplier: 'Proveedor A', date: '2024-01-10', status: 'Recibido', total: 10000.00 },
+                    { id: '#OC-002', supplier: 'Proveedor B', date: '2024-01-15', status: 'En Proceso', total: 5000.00 },
+                    { id: '#OC-003', supplier: 'Proveedor C', date: '2024-01-20', status: 'Pendiente', total: 3000.00 },
+                ],
+                workOrders: [
+                    { id: '#OP-001', product: 'Laptop Dell', quantity: 10, startDate: '2024-01-05', status: 'Completado' },
+                    { id: '#OP-002', product: 'Mouse Wireless', quantity: 100, startDate: '2024-01-10', status: 'En Proceso' },
+                    { id: '#OP-003', product: 'Teclado Mecánico', quantity: 50, startDate: '2024-01-15', status: 'Planificado' },
+                ],
+                boms: [
+                    { id: 1, product: 'Laptop Dell', version: '1.0', materials: [{name: 'Placa Madre', quantity: 1, unit: 'ud'}, {name: 'RAM 16GB', quantity: 2, unit: 'ud'}, {name: 'SSD 512GB', quantity: 1, unit: 'ud'}] },
+                    { id: 2, product: 'Mouse Wireless', version: '1.0', materials: [{name: 'Sensor Óptico', quantity: 1, unit: 'ud'}, {name: 'Carcasa', quantity: 1, unit: 'ud'}, {name: 'Batería AA', quantity: 2, unit: 'ud'}] },
+                ],
+                recentActivities: [
+                    { id: 1, title: 'Nueva factura emitida', description: 'Cliente: Tech Solutions Inc.', time: 'Hace 10 min', color: 'bg-terminal-success' },
+                    { id: 2, title: 'Ingreso de mercadería', description: 'Almacén Central - 500 uds', time: 'Hace 1 hora', color: 'bg-terminal-accent' },
+                    { id: 3, title: 'Contrato pendiente', description: 'Juan Pérez - Desarrollador', time: 'Hace 3 horas', color: 'bg-terminal-warning' },
+                    { id: 4, title: 'Cierre de periodo', description: 'Periodo: Octubre 2023', time: 'Ayer', color: 'bg-terminal-purple' },
+                ],
+                
+                // Form Data
+                formData: {
+                    employee: { dni: '', name: '', email: '', phone: '', position: '', hireDate: '' },
+                    product: { code: '', name: '', category: '', supplier: '', buyPrice: '', sellPrice: '', stock: '', minStock: '' },
+                    order: { client: '', date: new Date().toISOString().split('T')[0], status: 'Pendiente', total: '' },
+                    period: { year: 2024, month: 'Enero' },
+                },
+                
+                // Toast
+                toast: { show: false, message: '', type: 'success' },
+                
+                // Methods
+                navigate(module, submodule = '') {
+                    this.currentModule = module;
+                    this.currentSubmodule = submodule;
+                    this.sidebarOpen = false;
+                    
+                    if (window.innerWidth < 1024) {
+                        this.sidebarOpen = false;
+                    }
+                },
+                
+                showModal(type) {
+                    this.modalType = type;
+                    this.modalOpen = true;
+                    
+                    const titles = {
+                        employee: '> Nuevo_Empleado',
+                        product: '> Nuevo_Producto',
+                        order: '> Nueva_Orden_Venta',
+                        period: '> Nuevo_Periodo',
+                        account: '> Nueva_Cuenta_Contable',
+                        entry: '> Nuevo_Asiento',
+                        position: '> Nuevo_Puesto',
+                        contract: '> Nuevo_Contrato',
+                        payroll: '> Nueva_Nomina',
+                        client: '> Nuevo_Cliente',
+                        project: '> Nuevo_Proyecto',
+                        assignment: '> Nueva_Asignacion',
+                        warehouse: '> Nuevo_Almacen',
+                        supplier: '> Nuevo_Proveedor',
+                        category: '> Nueva_Categoria',
+                        stock: '> Ajuste_Stock',
+                        invoice: '> Nueva_Factura',
+                        payment: '> Nuevo_Pago',
+                        purchaseOrder: '> Nueva_Orden_Compra',
+                        workOrder: '> Nueva_Orden_Produccion',
+                        bom: '> Nueva_Receta_BOM',
+                    };
+                    
+                    this.modalTitle = titles[type] || '> Nuevo_Registro';
+                    
+                    this.formData = {
+                        employee: { dni: '', name: '', email: '', phone: '', position: '', hireDate: '' },
+                        product: { code: '', name: '', category: '', supplier: '', buyPrice: '', sellPrice: '', stock: '', minStock: '' },
+                        order: { client: '', date: new Date().toISOString().split('T')[0], status: 'Pendiente', total: '' },
+                        period: { year: 2024, month: 'Enero' },
+                    };
+                },
+                
+                formatCurrency(value) {
+                    return new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(value);
+                },
+                
+                showToast(message, type = 'success') {
+                    this.toast = { show: true, message, type };
+                    setTimeout(() => { this.toast.show = false; }, 3000);
+                },
+                
+                // CRUD Operations
+                saveEmployee() {
+                    const newId = Math.max(...this.employees.map(e => e.id)) + 1;
+                    this.employees.push({ id: newId, ...this.formData.employee });
+                    this.modalOpen = false;
+                    this.showToast('Empleado guardado exitosamente');
+                },
+                
+                editEmployee(employee) {
+                    this.formData.employee = { ...employee };
+                    this.showModal('employee');
+                    this.modalTitle = '> Editar_Empleado';
+                },
+                
+                deleteEmployee(employee) {
+                    if (confirm(`¿Eliminar empleado ${employee.name}?`)) {
+                        this.employees = this.employees.filter(e => e.id !== employee.id);
+                        this.showToast('Empleado eliminado', 'error');
+                    }
+                },
+                
+                saveProduct() {
+                    const newId = Math.max(...this.products.map(p => p.id)) + 1;
+                    this.products.push({ id: newId, ...this.formData.product });
+                    this.modalOpen = false;
+                    this.showToast('Producto guardado exitosamente');
+                },
+                
+                editProduct(product) {
+                    this.formData.product = { ...product };
+                    this.showModal('product');
+                    this.modalTitle = '> Editar_Producto';
+                },
+                
+                deleteProduct(product) {
+                    if (confirm(`¿Eliminar producto ${product.name}?`)) {
+                        this.products = this.products.filter(p => p.id !== product.id);
+                        this.showToast('Producto eliminado', 'error');
+                    }
+                },
+                
+                saveOrder() {
+                    const newId = `#ORD-${String(this.salesOrders.length + 1).padStart(3, '0')}`;
+                    this.salesOrders.push({ id: newId, ...this.formData.order });
+                    this.modalOpen = false;
+                    this.showToast('Orden guardada exitosamente');
+                },
+                
+                viewOrder(order) {
+                    alert(`Orden: ${order.id}\nCliente: ${order.client}\nTotal: ${this.formatCurrency(order.total)}`);
+                },
+                
+                editOrder(order) {
+                    this.formData.order = { ...order };
+                    this.showModal('order');
+                    this.modalTitle = '> Editar_Orden';
+                },
+                
+                deleteOrder(order) {
+                    if (confirm(`¿Eliminar orden ${order.id}?`)) {
+                        this.salesOrders = this.salesOrders.filter(o => o.id !== order.id);
+                        this.showToast('Orden eliminada', 'error');
+                    }
+                },
+                
+                savePeriod() {
+                    const newId = Math.max(...this.periods.map(p => p.id)) + 1;
+                    this.periods.push({ id: newId, ...this.formData.period, closed: false });
+                    this.modalOpen = false;
+                    this.showToast('Periodo guardado exitosamente');
+                },
+                
+                togglePeriod(period) {
+                    period.closed = !period.closed;
+                    this.showToast(period.closed ? 'Periodo cerrado' : 'Periodo abierto');
+                },
+                
+                deletePeriod(period) {
+                    if (confirm(`¿Eliminar periodo ${period.month} ${period.year}?`)) {
+                        this.periods = this.periods.filter(p => p.id !== period.id);
+                        this.showToast('Periodo eliminado', 'error');
+                    }
+                },
+                
+                editAccount(account) {
+                    this.showToast('Editar cuenta: ' + account.name);
+                },
+                
+                deleteAccount(account) {
+                    if (confirm(`¿Eliminar cuenta ${account.name}?`)) {
+                        this.accounts = this.accounts.filter(a => a.id !== account.id);
+                        this.showToast('Cuenta eliminada', 'error');
+                    }
+                },
+                
+                viewEntry(entry) {
+                    alert(`Asiento: ${entry.id}\nFecha: ${entry.date}\nGlosa: ${entry.description}`);
+                },
+                
+                deleteEntry(entry) {
+                    if (confirm(`¿Eliminar asiento ${entry.id}?`)) {
+                        this.journalEntries = this.journalEntries.filter(e => e.id !== entry.id);
+                        this.showToast('Asiento eliminado', 'error');
+                    }
+                },
+                
+                editPosition(position) {
+                    this.showToast('Editar puesto: ' + position.name);
+                },
+                
+                deletePosition(position) {
+                    if (confirm(`¿Eliminar puesto ${position.name}?`)) {
+                        this.positions = this.positions.filter(p => p.id !== position.id);
+                        this.showToast('Puesto eliminado', 'error');
+                    }
+                },
+                
+                viewContract(contract) {
+                    alert(`Contrato: ${contract.id}\nEmpleado: ${contract.employee}\nPuesto: ${contract.position}`);
+                },
+                
+                deleteContract(contract) {
+                    if (confirm(`¿Eliminar contrato ${contract.id}?`)) {
+                        this.contracts = this.contracts.filter(c => c.id !== contract.id);
+                        this.showToast('Contrato eliminado', 'error');
+                    }
+                },
+                
+                printPayroll(payroll) {
+                    alert(`Imprimiendo nómina de ${payroll.employee}\nNeto a pagar: ${this.formatCurrency(payroll.net)}`);
+                },
+                
+                deletePayroll(payroll) {
+                    if (confirm(`¿Eliminar nómina ${payroll.id}?`)) {
+                        this.payrolls = this.payrolls.filter(p => p.id !== payroll.id);
+                        this.showToast('Nómina eliminada', 'error');
+                    }
+                },
+                
+                editClient(client) {
+                    this.showToast('Editar cliente: ' + client.name);
+                },
+                
+                deleteClient(client) {
+                    if (confirm(`¿Eliminar cliente ${client.name}?`)) {
+                        this.clients = this.clients.filter(c => c.id !== client.id);
+                        this.showToast('Cliente eliminado', 'error');
+                    }
+                },
+                
+                viewProject(project) {
+                    alert(`Proyecto: ${project.name}\nCliente: ${project.client}\nEstado: ${project.status}`);
+                },
+                
+                deleteProject(project) {
+                    if (confirm(`¿Eliminar proyecto ${project.name}?`)) {
+                        this.projects = this.projects.filter(p => p.id !== project.id);
+                        this.showToast('Proyecto eliminado', 'error');
+                    }
+                },
+                
+                editAssignment(assignment) {
+                    this.showToast('Editar asignación: ' + assignment.id);
+                },
+                
+                deleteAssignment(assignment) {
+                    if (confirm(`¿Eliminar asignación ${assignment.id}?`)) {
+                        this.assignments = this.assignments.filter(a => a.id !== assignment.id);
+                        this.showToast('Asignación eliminada', 'error');
+                    }
+                },
+                
+                editWarehouse(warehouse) {
+                    this.showToast('Editar almacén: ' + warehouse.name);
+                },
+                
+                deleteWarehouse(warehouse) {
+                    if (confirm(`¿Eliminar almacén ${warehouse.name}?`)) {
+                        this.warehouses = this.warehouses.filter(w => w.id !== warehouse.id);
+                        this.showToast('Almacén eliminado', 'error');
+                    }
+                },
+                
+                editSupplier(supplier) {
+                    this.showToast('Editar proveedor: ' + supplier.name);
+                },
+                
+                deleteSupplier(supplier) {
+                    if (confirm(`¿Eliminar proveedor ${supplier.name}?`)) {
+                        this.suppliers = this.suppliers.filter(s => s.id !== supplier.id);
+                        this.showToast('Proveedor eliminado', 'error');
+                    }
+                },
+                
+                editCategory(category) {
+                    this.showToast('Editar categoría: ' + category.name);
+                },
+                
+                deleteCategory(category) {
+                    if (confirm(`¿Eliminar categoría ${category.name}?`)) {
+                        this.categories = this.categories.filter(c => c.id !== category.id);
+                        this.showToast('Categoría eliminada', 'error');
+                    }
+                },
+                
+                adjustStock(item) {
+                    const newQty = prompt(`Nueva cantidad para ${item.product}:`, item.quantity);
+                    if (newQty !== null) {
+                        item.quantity = parseInt(newQty);
+                        this.showToast('Stock actualizado');
+                    }
+                },
+                
+                printInvoice(invoice) {
+                    alert(`Imprimiendo factura ${invoice.id}\nTotal: ${this.formatCurrency(invoice.total)}`);
+                },
+                
+                deleteInvoice(invoice) {
+                    if (confirm(`¿Eliminar factura ${invoice.id}?`)) {
+                        this.invoices = this.invoices.filter(i => i.id !== invoice.id);
+                        this.showToast('Factura eliminada', 'error');
+                    }
+                },
+                
+                viewPayment(payment) {
+                    alert(`Pago: ${payment.id}\nFactura: ${payment.invoice}\nMonto: ${this.formatCurrency(payment.amount)}`);
+                },
+                
+                deletePayment(payment) {
+                    if (confirm(`¿Eliminar pago ${payment.id}?`)) {
+                        this.payments = this.payments.filter(p => p.id !== payment.id);
+                        this.showToast('Pago eliminado', 'error');
+                    }
+                },
+                
+                viewPurchaseOrder(order) {
+                    alert(`Orden de Compra: ${order.id}\nProveedor: ${order.supplier}\nTotal: ${this.formatCurrency(order.total)}`);
+                },
+                
+                editPurchaseOrder(order) {
+                    this.showToast('Editar orden de compra: ' + order.id);
+                },
+                
+                deletePurchaseOrder(order) {
+                    if (confirm(`¿Eliminar orden de compra ${order.id}?`)) {
+                        this.purchaseOrders = this.purchaseOrders.filter(o => o.id !== order.id);
+                        this.showToast('Orden eliminada', 'error');
+                    }
+                },
+                
+                viewWorkOrder(order) {
+                    alert(`Orden de Producción: ${order.id}\nProducto: ${order.product}\nCantidad: ${order.quantity}`);
+                },
+                
+                editWorkOrder(order) {
+                    this.showToast('Editar orden de producción: ' + order.id);
+                },
+                
+                editBom(bom) {
+                    this.showToast('Editar receta: ' + bom.product);
+                },
+                
+                deleteBom(bom) {
+                    if (confirm(`¿Eliminar receta de ${bom.product}?`)) {
+                        this.boms = this.boms.filter(b => b.id !== bom.id);
+                        this.showToast('Receta eliminada', 'error');
+                    }
+                },
+                
+                initCharts() {
+                    // Wait for DOM to be ready and only initialize once
+                    setTimeout(() => {
+                        if (this.chartInitialized) return;
+                        
+                        const ctx = document.getElementById('salesBarChart');
+                        if (ctx && !this.chartInitialized) {
+                            this.chartInitialized = true;
+                            
+                            new Chart(ctx, {
+                                type: 'bar',
+                                data: {
+                                    labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+                                    datasets: [{
+                                        label: 'Ventas',
+                                        data: [50000, 65000, 58000, 72000, 68000, 85000],
+                                        backgroundColor: 'rgba(88, 166, 255, 0.6)',
+                                        borderColor: '#58a6ff',
+                                        borderWidth: 1,
+                                        borderRadius: 4
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: {
+                                            display: false
+                                        }
+                                    },
+                                    scales: {
+                                        y: {
+                                            beginAtZero: true,
+                                            grid: {
+                                                color: '#30363d'
+                                            },
+                                            ticks: {
+                                                color: '#8b949e',
+                                                callback: function(value) {
+                                                    return '$' + value.toLocaleString();
+                                                }
+                                            }
+                                        },
+                                        x: {
+                                            grid: {
+                                                display: false
+                                            },
+                                            ticks: {
+                                                color: '#8b949e'
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    }, 200);
+                }
+            }
+        }
+    </script>
 </body>
 </html>
+
