@@ -1,4 +1,4 @@
 <?php
 $saludo = "Hola usuario como estas?";
-echo = $saludo;
-
+echo = $saludo ;
+echo "V2 ";
